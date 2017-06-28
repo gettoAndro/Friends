@@ -1,20 +1,12 @@
 package com.getto.friends2.userlist;
-
-import android.support.v4.widget.SwipeRefreshLayout;
-
-import com.getto.friends2.main.Model;
+import com.getto.friends2.model_retrofit.Users;
 
 /**
  * Created by Getto on 06.07.2016.
  */
 public interface UserListView {
-  //void onCreateView(Model model);
-    void Swipe();
-    void SwipeComplete();
-    void onRefreshSwipe();
-    void onShowProgress();
-    boolean isRefreshingSwipe();
-    void onCompleteProgress();
-    void onRefreshData();
+    void addItems(Users users);
+    void swipeRefresh();
+    void swipeDismiss();
     void ErrorMessageFromConnect();
 }

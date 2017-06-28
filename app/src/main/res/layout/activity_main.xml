@@ -3,29 +3,29 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#ff000000"
-    android:padding="4dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
     tools:context=".main.MainActivity">
 
-    <GridView
-        android:id="@+id/gridView"
+   <include
+       android:id="@+id/container_toolbar"
+       layout="@layout/toolbar"/>
+
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/list_friends"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:columnWidth="200dp"
-        android:gravity="center"
-        android:horizontalSpacing="5dp"
-        android:numColumns="1"
-        android:stretchMode="columnWidth"
-        android:verticalSpacing="10dp">
-    </GridView>
-    <ImageView
-        android:id="@+id/img_plus"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:src="@drawable/plus"
-        android:layout_margin="20dp"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:onClick="OnClickFindFriends" />
-
+        android:layout_below="@+id/container_toolbar">
+    </android.support.v7.widget.RecyclerView>
+<android.support.design.widget.FloatingActionButton
+    android:id="@+id/fb_find"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentBottom="true"
+    android:layout_alignParentRight="true"
+    android:src="@drawable/add"
+    android:layout_margin="16dp"
+    app:layout_behavior="com.getto.friends2.FabHide"
+    android:onClick="OnClickFindFriends"
+    />
 </RelativeLayout>

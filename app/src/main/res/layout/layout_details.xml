@@ -1,30 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:layout_width="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <include layout="@layout/toolbar"/>
 
-    <ImageView
+    <de.hdodenhof.circleimageview.CircleImageView
         android:id="@+id/image_details"
-        android:onClick="onClickPortreit"
+        android:onClick="onClickPortrait"
         android:layout_gravity="center"
-        android:layout_width="160dp"
-        android:layout_height="80dp"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_margin="8dp"
+        app:civ_border_width="2dp"
+        app:civ_border_color="@color/primary"
+        />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Name:"
+        android:textSize="20sp"
+        android:textColor="@color/accent"
+        android:textStyle="bold"
         android:layout_margin="8dp"/>
 
     <EditText
         android:inputType="textPersonName"
         android:id="@+id/edit_name"
         android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+
+    <TextView
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColorLink="@color/colorBackground"
-        android:textColorHint="@color/colorBackground"/>
+        android:text="E-mail:"
+        android:textSize="20sp"
+        android:textColor="@color/accent"
+        android:textStyle="bold"
+        android:layout_margin="8dp"/>
 
     <EditText
         android:inputType="textEmailAddress"
         android:id="@+id/edit_email"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Phone:"
+        android:textSize="20sp"
+        android:textColor="@color/accent"
+        android:textStyle="bold"
+        android:layout_margin="8dp"/>
 
     <EditText
         android:inputType="phone"
@@ -38,6 +70,8 @@
     android:onClick="onApply"
     android:layout_gravity="center"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content" />
+    android:layout_height="wrap_content"
+    android:textColor="@android:color/white"
+    android:background="@drawable/custom_btn"/>
 
 </LinearLayout>

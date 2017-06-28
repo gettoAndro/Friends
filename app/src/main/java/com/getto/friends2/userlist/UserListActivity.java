@@ -1,57 +1,86 @@
 package com.getto.friends2.userlist;
 
 import android.app.ProgressDialog;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.view.ContextMenu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
+import com.getto.friends2.App;
+import com.getto.friends2.DaoSession;
 import com.getto.friends2.R;
-import com.getto.friends2.main.Model;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-
+import com.getto.friends2.UserDao;
+import com.getto.friends2.model_retrofit.Result;
+import com.getto.friends2.model_retrofit.Users;
 
 /**
  * Created by Getto on 20.03.2016.
  */
 public class UserListActivity extends AppCompatActivity implements UserListView, SwipeRefreshLayout.OnRefreshListener {
 
-    UserAdapter adapter;
-    SwipeRefreshLayout swipeRefreshLayout;
+    private UserAdapter adapter;
+    private SwipeRefreshLayout swipeRefreshLayout;
     private static final int CTM_ADD_ID = 201;
-    ProgressDialog dialog;
-    UsersPresenter presenter;
-    Model model;
-    ListView listView;
+    private UsersPresenter presenter;
+    private UserDao userDao;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.layout_users);
-        swipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh);
-        swipeRefreshLayout.setOnRefreshListener(this);
-        listView = (ListView) findViewById(R.id.list);
-        model = new Model(this);
-        presenter = new UsersPresenter(model, this);
+        initViews();
+        presenter = new UsersPresenter(this);
         presenter.onCreate();
-        registerForContextMenu(listView);
-        adapter = new UserAdapter(UserListActivity.this, R.layout.item_users, model.getUsersList());
-        listView.setAdapter(adapter);
+        DaoSession daoSession = ((App) getApplication()).getDaoSession();
+        userDao = daoSession.getUserDao();
     }
 
+    void initViews(){
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
 
+        if (getSupportActionBar() != null)
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+        setTitle("Users");
+        swipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh);
+        swipeRefreshLayout.setOnRefreshListener(this);
+        swipeRefreshLayout.setEnabled(false);
+        swipeRefreshLayout.setColorSchemeResources(R.color.primary_dark, R.color.primary, R.color.accent);
+        ListView listUsers = (ListView) findViewById(R.id.list_users);
+        adapter = new UserAdapter(getApplicationContext(), R.layout.item_users);
+        listUsers.setAdapter(adapter);
+        registerForContextMenu(listUsers);
+        listUsers.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+
+            }
+
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+                if ((firstVisibleItem + visibleItemCount) >= totalItemCount && totalItemCount!=0) {
+                    presenter.nextPage();
+                }
+            }
+        });
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()){
+            case android.R.id.home:
+                finish();
+                break;
+        }
+        return super.onOptionsItemSelected(item);
+    }
 
     public void onCreateContextMenu(ContextMenu contextMenu, View view, ContextMenu.ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(contextMenu, view, menuInfo);
@@ -62,23 +91,12 @@ public class UserListActivity extends AppCompatActivity implements UserListView,
         if (item.getItemId() == CTM_ADD_ID) {
             AdapterView.AdapterContextMenuInfo adapterContextMenuInfo = (AdapterView.AdapterContextMenuInfo) item
                     .getMenuInfo();
+            Result result = adapter.getUser(adapterContextMenuInfo.position);
+            result.setFriend(true);
+            presenter.addToDataBase(getApplicationContext() ,result, userDao);
+            adapter.notifyDataSetChanged();
 
-            model.Open();
-            User user = model.getUsersList().get(adapterContextMenuInfo.position);
-            byte[] bytes = null;
-            try {
-            bytes = new ImageAsyncTask().execute(user.getImage()).get();
-            } catch (InterruptedException e){e.printStackTrace();}
-            catch (ExecutionException e){e.printStackTrace();}
-            if (bytes != null){
-                if (!user.isFriends()){
-              model.addRec(bytes, user.getName(), user.getEmail(), user.getPhone());
-            user.setFriends(true);
-            adapter.notifyDataSetChanged();} else Toast.makeText(UserListActivity.this, "Пользователь уже добавлен в друзья", Toast.LENGTH_LONG).show();
-            }
-         else Toast.makeText(UserListActivity.this, "Не удалось добавить пользователя в друзья, проверьте интернет подключение", Toast.LENGTH_LONG).show();
-                model.Close();
-        }
+    }
         return super.onContextItemSelected(item);
     }
 
@@ -88,43 +106,21 @@ public class UserListActivity extends AppCompatActivity implements UserListView,
       presenter.onRefresh();
     }
 
+
     @Override
-    public void onRefreshSwipe() {
-        adapter.notifyDataSetChanged();
+    public void addItems(Users users) {
+        adapter.setUsers(users);
     }
+
     @Override
-    public void Swipe() {
+    public void swipeRefresh() {
         swipeRefreshLayout.setRefreshing(true);
     }
 
-    @Override
-    public boolean isRefreshingSwipe() {
-        if (swipeRefreshLayout.isRefreshing()) return true;
-       else return false;
-    }
 
     @Override
-    public void SwipeComplete() {
+    public void swipeDismiss() {
         swipeRefreshLayout.setRefreshing(false);
-    }
-
-    @Override
-    public void onShowProgress() {
-        dialog = new ProgressDialog(UserListActivity.this);
-        dialog.setMessage("Loading, please wait");
-        dialog.setTitle("Connecting server");
-        dialog.show();
-        dialog.setCancelable(false);
-    }
-
-    @Override
-    public void onCompleteProgress() {
-     dialog.dismiss();
-    }
-
-    @Override
-    public void onRefreshData() {
-     adapter.notifyDataSetChanged();
     }
 
     @Override
@@ -132,30 +128,6 @@ public class UserListActivity extends AppCompatActivity implements UserListView,
         Toast.makeText(getApplicationContext(), "Unable to fetch data from server", Toast.LENGTH_LONG).show();
     }
 
-    class ImageAsyncTask extends AsyncTask<String, Void, byte[]> {
-            @Override
-            protected byte[] doInBackground(String... params) {
-                byte[] dataImage = null;
-                try {
-                    DefaultHttpClient mHttpClient = new DefaultHttpClient();
-                    HttpGet mHttpGet = new HttpGet(params[0]);
-                    HttpResponse mHttpResponse = mHttpClient.execute(mHttpGet);
-                    if (mHttpResponse.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                        HttpEntity entity = mHttpResponse.getEntity();
-                        if (entity != null) {
-                            dataImage = EntityUtils.toByteArray(entity);
-                        }
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                return dataImage;
-            }
-            @Override
-            protected void onPostExecute(byte[] result) {
-                super.onPostExecute(result);
-            }
-        }
 }
 
 

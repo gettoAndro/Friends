@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Friends2</string>
+    <string name="app_name">Friends</string>
+    <string name="delete_friend">Delete friend</string>
 </resources>

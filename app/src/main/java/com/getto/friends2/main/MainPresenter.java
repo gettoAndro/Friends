@@ -1,8 +1,8 @@
 package com.getto.friends2.main;
 
-import android.database.Cursor;
 
-import com.getto.friends2.R;
+import com.getto.friends2.User;
+import com.getto.friends2.UserDao;
 
 /**
  * Created by Getto on 06.07.2016.
@@ -10,7 +10,6 @@ import com.getto.friends2.R;
 public class MainPresenter {
     private MainView mainView;
     private Model model;
-    private Cursor cursor;
 
     MainPresenter(MainView mainView, Model model){
         this.mainView = mainView;
@@ -18,27 +17,19 @@ public class MainPresenter {
     }
 
     public void onCreate(){
-        model.Open();
-        cursor = model.getAllData();
-       mainView.onCreateView(cursor);
+        mainView.onCreateView();
+    }
+
+    public void updateList(){
+        mainView.updateAdapter();
     }
 
     public void OnClickFindFriend(){
         mainView.FindFriends();
     }
 
-    public void onResume(){
-        cursor.requery();
-        mainView.updateAdapter();
-    }
 
-    public void delFriend(long id){
-        model.delRec(id);
-        cursor.requery();
-        mainView.updateAdapter();
+    public void delFriend(User user, UserDao userDao){
+        userDao.delete(user);
     }
-    public void launchActivityDetails(long item){
-        mainView.showInfoFriend(item);
-    }
-
 }

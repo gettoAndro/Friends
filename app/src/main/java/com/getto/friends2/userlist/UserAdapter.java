@@ -1,89 +1,85 @@
 package com.getto.friends2.userlist;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.os.AsyncTask;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
-
 import com.getto.friends2.R;
+import com.getto.friends2.model_retrofit.Users;
+import com.getto.friends2.model_retrofit.Result;
 import com.squareup.picasso.Picasso;
 
-import java.io.InputStream;
-import java.util.ArrayList;
+import de.hdodenhof.circleimageview.CircleImageView;
 
 /**
  * Created by Getto on 25.05.2016.
  */
-public class UserAdapter extends ArrayAdapter<User> {
-    private ArrayList<User> userList;
+public class UserAdapter extends ArrayAdapter<Users> {
+    private Users users;
+    private Context context;
+    private int resource;
     private LayoutInflater vi;
-    private int Resource;
-    private ViewHolder holder;
 
-    public UserAdapter(Context context, int resource, ArrayList<User> objects) {
-        super(context, resource, objects);
-        vi = (LayoutInflater) context
-                .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        Resource = resource;
-        userList = objects;
+
+   private static class ViewHolderUsers {
+        CircleImageView imageview;
+        ImageView image_add;
+        TextView tvName;
     }
 
+    public UserAdapter(Context context, int resource) {
+        super(context, resource);
+        this.context = context;
+        this.resource = resource;
+        vi = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        users = new Users();
+    }
+
+    public void setUsers(Users users){
+        for (int i = 0 ;i < users.getResults().size(); i++)
+            this.users.getResults().add(users.getResults().get(i));
+        notifyDataSetChanged();
+    }
+
+    public Result getUser(int position){
+        return users.getResults().get(position);
+    }
+
+    @NonNull
     @Override
-    public View getView(int position, View convertView, ViewGroup parent) {
-       // Context context = parent.getContext();
+    public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         View v = convertView;
+        ViewHolderUsers holder;
         if (v == null) {
-            holder = new ViewHolder();
-            v = vi.inflate(Resource, null);
-            holder.imageview = (ImageView) v.findViewById(R.id.ivImage);
+            holder = new ViewHolderUsers();
+            v = vi.inflate(resource, null);
+            holder.imageview = (CircleImageView) v.findViewById(R.id.ivImage);
             holder.tvName = (TextView) v.findViewById(R.id.tvName);
             holder.image_add = (ImageView) v.findViewById(R.id.image_add);
             v.setTag(holder);
         } else {
-            holder = (ViewHolder) v.getTag();
+            holder = (ViewHolderUsers) v.getTag();
         }
-        User user = userList.get(position);
-        Picasso.with(getContext()).load(user.getImage()).into(holder.imageview);
-        holder.tvName.setText(user.getName());
+        Result result = users.getResults().get(position);
+        Picasso.with(context).load(result.getPicture().getMedium()).into(holder.imageview);
+        holder.tvName.setText(result.getName().getFirst() + " " + result.getName().getLast());
         holder.image_add.setImageResource(R.drawable.tick);
-        holder.image_add.setVisibility(user.isFriends() ? View.VISIBLE : View.INVISIBLE);
-
-
+        holder.image_add.setVisibility(result.isFriend() ? View.VISIBLE : View.INVISIBLE);
         return v;
     }
-    static class ViewHolder {
-        public ImageView imageview, image_add;
-        public TextView tvName;
+
+    @Override
+    public int getCount() {
+        return users.getResults().size();
     }
 
-    private class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
-        ImageView bmImage;
-
-        public DownloadImageTask(ImageView bmImage) {
-            this.bmImage = bmImage;
-        }
-        protected Bitmap doInBackground(String... urls) {
-            String urldisplay = urls[0];
-            Bitmap mIcon11 = null;
-            try {
-                InputStream in = new java.net.URL(urldisplay).openStream();
-                mIcon11 = BitmapFactory.decodeStream(in);
-            } catch (Exception e) {
-                Log.e("Error", e.getMessage());
-                e.printStackTrace();
-            }
-            return mIcon11;
-        }
-        protected void onPostExecute(Bitmap result) {
-            bmImage.setImageBitmap(result);
-        }
-    }
 
 }

@@ -1,99 +1,146 @@
 package com.getto.friends2.userlist;
 
-import android.app.ProgressDialog;
-import android.os.AsyncTask;
-import android.widget.Toast;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
+import android.os.Environment;
+import android.support.annotation.NonNull;
+import android.util.Log;
 
-import com.getto.friends2.main.Model;
+import com.getto.friends2.*;
+import com.getto.friends2.User;
+import com.getto.friends2.model_retrofit.Result;
+import com.getto.friends2.model_retrofit.Users;
+import com.squareup.picasso.Picasso;
+import com.squareup.picasso.Target;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
+import retrofit2.Call;
+import retrofit2.Response;
 
 /**
  * Created by Getto on 06.07.2016.
  */
-public class UsersPresenter {
-    private Model model;
-    private UserListView userListView;
 
-    public UsersPresenter(Model model, UserListView userListView) {
-        this.model = model;
+public class UsersPresenter implements CallBackUser{
+
+    private UserListView userListView;
+    private static UsersApi usersApi;
+    private int page = 1;
+
+    public UsersPresenter(UserListView userListView) {
         this.userListView = userListView;
     }
+
     public void onCreate(){
-        new JSONAsyncTask().execute("http://api.randomuser.me/?results=10");
-    }
-    public void onRefresh(){
-        model.delFromListUsers();
-        userListView.onRefreshSwipe();
-        new JSONAsyncTask().execute("http://api.randomuser.me/?results=10");
+        usersApi = RetrofitClient.getApi();
+        usersApi.getUsers(page, 10).enqueue(this);
+        onLoad();
     }
 
-    class JSONAsyncTask extends AsyncTask<String, Void, String> {
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            if (!userListView.isRefreshingSwipe())
-            userListView.onShowProgress();
-            else userListView.Swipe();
-        }
+    public void nextPage(){
+        usersApi.getUsers(page++, 10).enqueue(this);
+        onLoad();
+    }
 
-        @Override
-        protected String doInBackground(String... urls) {
-            BufferedReader reader = null;
-            String resultJson = "";
-            try {
-                //------------------>>
-                URL url = new URL(urls[0]);
-                URLConnection urlConnection = (HttpURLConnection) url.openConnection();
-                urlConnection.connect();
-                InputStream inputStream = urlConnection.getInputStream();
-                StringBuffer buffer = new StringBuffer();
-                reader = new BufferedReader(new InputStreamReader(inputStream));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    buffer.append(line);
-                }
-                resultJson = buffer.toString();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return resultJson;
-        }
+    public void addToDataBase(Context context ,Result result, UserDao userDao){
+        String imagename = result.getPicture().getMedium().substring(result.getPicture().getMedium().lastIndexOf("/") + 1);
 
-        protected void onPostExecute(String result) {
-            if (!userListView.isRefreshingSwipe())
-            userListView.onCompleteProgress();
-             else userListView.SwipeComplete();
-            if (result != null) {
-                try {
-                    JSONObject jsono = new JSONObject(result);
-                    JSONArray jarray = jsono.getJSONArray("results");
-                    for (int i = 0; i < jarray.length(); i++) {
-                        JSONObject object = jarray.getJSONObject(i);
-                        JSONObject user = object.getJSONObject("name");
-                        JSONObject photo = object.getJSONObject("picture");
-                        User users = new User();
-                        users.setImage(photo.getString("medium"));
-                        users.setName(user.getString("first") + " " + user.getString("last"));
-                        users.setEmail(object.getString("email"));
-                        users.setPhone(object.getString("phone"));
-                        model.addFromListUsers(users);
+        imageDownload(context, result.getPicture().getMedium(), imagename);
+
+        User user = new User();
+        user.setEmail(result.getEmail());
+        user.setImage(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).getPath() + "/" + imagename);
+        user.setName(result.getName().getFirst() + " " + result.getName().getLast());
+        user.setPhone(result.getPhone());
+        user.setFriends(true);
+        userDao.insert(user);
+    }
+    public void imageDownload(Context ctx, String url, String path){
+        Picasso.with(ctx)
+                .load(url)
+                .into(getTarget(path));
+    }
+
+    //target to save
+    private Target getTarget(final String url){
+
+        Target target = new Target(){
+            @Override
+            public void onBitmapLoaded(final Bitmap bitmap, Picasso.LoadedFrom from) {
+
+                Thread t = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).getPath() + "/" + url);
+                        String path = file.getPath();
+                        Log.d("PATH", path);
+                        Bitmap b = BitmapFactory.decodeFile(path);
+
+                        if(b == null)
+                        {
+
+                            Log.d("IMAGE-EXIST", "NOT EXIST");
+                            Log.d("THREAD-SAVE_SD", file.getAbsolutePath());
+                            try {
+                                file.createNewFile();
+                                FileOutputStream ostream = new FileOutputStream(file);
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, ostream);
+                                ostream.flush();
+                                ostream.close();
+                            } catch (IOException e){
+                                Log.e("IOException", e.getLocalizedMessage());
+                            }
+
+                        }
+                        else {
+                            Log.d("IMAGE-EXIST", "EXIST");
+                        }
                     }
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-               userListView.onRefreshData();
-            } else
-               userListView.ErrorMessageFromConnect();
+                });
+
+                t.start();
+            }
+
+            @Override
+            public void onBitmapFailed(Drawable errorDrawable) {
+
+            }
+
+            @Override
+            public void onPrepareLoad(Drawable placeHolderDrawable) {
+            }
+        };
+        return target;
+    }
+
+    public void onRefresh(){
+    }
+
+    @Override
+    public void onLoad() {
+        userListView.swipeRefresh();
+    }
+
+    @Override
+    public void onResponse(@NonNull Call<Users> call, @NonNull Response<Users> response) {
+
+        if (response.isSuccessful()) {
+            Log.d("Retrofit", "Response: " + response.code() + ", " + response.body().getResults().get(0).getName().getFirst());
+            userListView.addItems(response.body());
+            userListView.swipeDismiss();
         }
     }
+
+    @Override
+    public void onFailure(Call<Users> call, Throwable t) {
+        userListView.ErrorMessageFromConnect();
+        userListView.swipeDismiss();
+    }
+
 }

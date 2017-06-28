@@ -4,47 +4,76 @@ import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.Toast;
-
+import com.getto.friends2.App;
+import com.getto.friends2.DaoSession;
 import com.getto.friends2.R;
-import com.getto.friends2.main.Model;
+import com.getto.friends2.User;
+import com.getto.friends2.UserDao;
+import com.squareup.picasso.Picasso;
 
-import java.io.ByteArrayOutputStream;
+import org.greenrobot.greendao.query.Query;
+
+import java.io.File;
 import java.io.IOException;
-
 
 /**
  * Created by Getto on 13.03.2016.
  */
-public class ActivityDetails extends Activity implements DetailsView{
+public class ActivityDetails extends AppCompatActivity implements DetailsView{
 
-    private Model model;
     private DetailsPresenter presenter;
     private EditText editName, editPhone, editEmail;
     private ImageView imageFriend;
     static final int GALLERY_REQUEST = 1;
-    private Bitmap bitmap = null;
+    private UserDao userDao;
+    private User user;
+    private  Uri selectedImage;
+    private Long id_user;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.layout_details);
+        initViews();
+        presenter = new DetailsPresenter(this);
+        presenter.onCreate();
+    }
+
+    public void initViews(){
+        id_user = getIntent().getLongExtra("user", 0);
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        setTitle("Info");
+        if (getSupportActionBar() != null)
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
         editName = (EditText)findViewById(R.id.edit_name);
         editEmail = (EditText)findViewById(R.id.edit_email);
         editPhone = (EditText) findViewById(R.id.edit_phone);
         imageFriend = (ImageView) findViewById(R.id.image_details);
-        model = new Model(this);
-        presenter = new DetailsPresenter(model, this);
-        presenter.onCreate();
     }
-    public void onClickPortreit(View view){
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()){
+            case android.R.id.home:
+                finish();
+                break;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    public void onClickPortrait(View view){
         presenter.onLaunchGallery();
     }
 
@@ -56,60 +85,58 @@ public class ActivityDetails extends Activity implements DetailsView{
     }
 
     @Override
-    public void onCreateView(Cursor cursor) {
-        cursor.moveToFirst();
-        editName.setText(cursor.getString(cursor.getColumnIndex("name")));
-        editEmail.setText(cursor.getString(cursor.getColumnIndex("email")));
-        editPhone.setText(cursor.getString(cursor.getColumnIndex("phone")));
-        byte[] bb = cursor.getBlob(cursor.getColumnIndex("image"));
-        if (bb != null){ bitmap = BitmapFactory.decodeByteArray(bb, 0, bb.length);
-            imageFriend.setImageBitmap(bitmap);}
-        else imageFriend.setImageResource(R.drawable.q);
+    public void onCreateView() {
+        DaoSession daoSession = ((App) getApplication()).getDaoSession();
+        userDao = daoSession.getUserDao();
+        user = userDao.load(id_user);
+        editName.setText(user.getName());
+        editEmail.setText(user.getEmail());
+        editPhone.setText(user.getPhone());
+        File file = new File(user.getImage());
+        Picasso.with(this).load(file).into(imageFriend);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-       // Bitmap bitmap = null;
+        Bitmap bitmap = null;
         switch (requestCode) {
             case GALLERY_REQUEST:
                 if (resultCode == RESULT_OK) {
-                    Uri selectedImage = data.getData();
+                    selectedImage = data.getData();
                     try {
                         bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), selectedImage);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                     imageFriend.setImageBitmap(bitmap);
-
-    }
+                }
         }
     }
 
-    @Override
-    public void onApplyChanges() {
-        if (bitmap != null || editName.getText() != null || editEmail.getText() != null || editPhone.getText() != null) {
-            model.EditImage(getBytesFromBitmap(bitmap), getID());
-            model.EditName(editName.getText().toString(), getID());
-            model.EditEmail(editEmail.getText().toString(), getID());
-            model.EditPhone(editPhone.getText().toString(), getID());
-            Toast.makeText(this, "Данные успешно изменены", Toast.LENGTH_SHORT).show();
-        } else Toast.makeText(this, "Некоторые данные пустые. Заполните их!", Toast.LENGTH_LONG).show();
+
+    private String getRealPathFromURI(Uri contentURI) {
+        String result;
+        Cursor cursor = getContentResolver().query(contentURI, null, null, null, null);
+        if (cursor == null) { // Source is Dropbox or other similar local file path
+            result = contentURI.getPath();
+        } else {
+            cursor.moveToFirst();
+            int idx = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
+            result = cursor.getString(idx);
+            cursor.close();
+        }
+        return result;
     }
 
-    public void onApply(View v){
-       presenter.ApplyChanges();
-    }
 
-
-    @Override
-    public long getID() {
-        return  getIntent().getExtras().getLong("item");
-    }
-
-    public byte[] getBytesFromBitmap(Bitmap bitmap) {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream);
-        return stream.toByteArray();
+    public void onApply(View view) {
+        user.setName(editName.getText().toString());
+        user.setEmail(editEmail.getText().toString());
+        user.setPhone(editPhone.getText().toString());
+        if (selectedImage != null)
+        user.setImage(getRealPathFromURI(selectedImage));
+        Log.d("User", "ID = " + userDao.getKey(user) + "Name = " + user.getName() + ", email = " + user.getEmail());
+        presenter.updateUser(userDao, user);
     }
 }
